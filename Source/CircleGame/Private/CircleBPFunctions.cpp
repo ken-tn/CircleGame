@@ -41,7 +41,6 @@ void UCircleBPFunctions::OrbitLoop(const AActor* center, AActor* object, const f
 
 	FVector mainOrbiterPosition = center->GetActorLocation();
 	FVector newPosition = FVector(sin(newRotation) * calculateEclipse, cos(newRotation) * radius, 0) + mainOrbiterPosition;
-	//newPosition = newPosition.RotateAngleAxis(90, newPosition.ForwardVector);
 
 	object->SetActorLocation(newPosition);
 }
