@@ -32,18 +32,16 @@ void UCircleBPFunctions::OrbitLoop(const AActor* center, AActor* object, const f
 {
 	float rotationSpeed = PI * 2 / orbitTime;
 	float calculateEclipse = eclipse * radius;
-	/*if (reverse) {
-		newRotation = currentRotation + (1/60) * rotationSpeed;
+	if (reverse) {
+		newRotation = currentRotation + (0.166666f) * rotationSpeed;
 	}
 	else {
-		newRotation = currentRotation - (1/60) * rotationSpeed;
-	}*/
-	
-	newRotation = currentRotation + (1 / 60) * rotationSpeed;
-	UE_LOG(LogTemp, Warning, TEXT("%f"), newRotation);
+		newRotation = currentRotation - (0.166666f) * rotationSpeed;
+	}
 
 	FVector mainOrbiterPosition = center->GetActorLocation();
-	FVector newPosition = FVector(sin(newRotation) * calculateEclipse, 0, cos(newRotation) * radius) + mainOrbiterPosition;
+	FVector newPosition = FVector(sin(newRotation) * calculateEclipse, cos(newRotation) * radius, 0) + mainOrbiterPosition;
+	//newPosition = newPosition.RotateAngleAxis(90, newPosition.ForwardVector);
 
 	object->SetActorLocation(newPosition);
 }
