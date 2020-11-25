@@ -3,6 +3,7 @@
 
 #include "CircleBPFunctions.h"
 #include "Kismet/GameplayStatics.h"
+#include "Materials/MaterialInstanceConstant.h"
 
 const FRotator UCircleBPFunctions::NormalToRotator(FVector currentRotation, FVector normal)
 {
@@ -43,19 +44,16 @@ void UCircleBPFunctions::OrbitLoop(const AActor* center, AActor* object, const f
 	newPosition = FVector(sin(newRotation) * calculateEclipse, cos(newRotation) * radius, 0) + mainOrbiterPosition;
 }
 
-void UCircleBPFunctions::CloneOrbiter(const AActor* mainOrbiter, UStaticMeshComponent*& staticMeshComponent, AActor*& actor)
+void UCircleBPFunctions::CloneOrbiter(const AActor* AMainOrbiter, UStaticMeshComponent* &staticMeshComponent, AActor* &actor, bool& Success)
 {
-	FTransform spawnTransform = mainOrbiter->GetRootComponent()->GetComponentTransform();
-	actor = mainOrbiter->GetWorld()->SpawnActor<AActor>(spawnTransform.GetLocation(), spawnTransform.GetRotation().Rotator());
+	FTransform SpawnTransform = AMainOrbiter->GetRootComponent()->GetComponentTransform();
+	AActor* AOrbiter = AMainOrbiter->GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), SpawnTransform);
 	
-	static ConstructorHelpers::FObjectFinder<UStaticMesh>MeshAsset(TEXT("StaticMesh'/Game/Circles/orbit.orbit'"));
-	UStaticMesh* orbiterMesh = MeshAsset.Object;
-	staticMeshComponent = actor->CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
-	staticMeshComponent->SetStaticMesh(orbiterMesh);
-
-	static ConstructorHelpers::FObjectFinder<UMaterialInstance>MaterialAsset(TEXT("MaterialInstanceConstant'/Game/Material/Orbit_Material.Orbit_Material'"));
-	UMaterialInstance* orbiterMaterial = MaterialAsset.Object;
-	staticMeshComponent->SetMaterial(0, orbiterMaterial);
+	//TEXT("StaticMesh'/Game/Circles/orbit.orbit'")
+	UStaticMeshComponent* StaticMeshComponent = NewObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass(), TEXT("StaticMesh"));
+	StaticMeshComponent->AttachTo(AMainOrbiter->GetRootComponent());
+	//UMaterialInstanceConstant* Material = AOrbiter->ConstructObject<UMaterialInstanceConstant>(TEXT("MaterialInstanceConstant'/Game/Material/Orbit_Material.Orbit_Material'"));
+	//StaticMeshComponent->SetMaterial(0, Material);
 }
 
 void UCircleBPFunctions::RingInRange(const AActor* orbiter, const AActor* currentTarget, const float lockRadius, float &distance, bool& inRange)
@@ -74,17 +72,69 @@ void UCircleBPFunctions::RingInRange(const AActor* orbiter, const AActor* curren
 	return;
 }
 
-void UCircleBPFunctions::FindNearestRing(const TMap<AActor*, float> nearRings, AActor*& nearestRing)
+void UCircleBPFunctions::FindNearestRing(TMap<AActor*, float> nearRings, FTransform& nearestRingTransform)
 {
 	float minDist = 100000.f;
-	for (auto It = nearRings.CreateConstIterator(); It; ++It)
+	for (auto& Elem : nearRings)
 	{
-		const float dist = It.Value();
+		const float dist = Elem.Value;
 		if (dist < minDist) {
 			minDist = dist;
-			nearestRing = It.Key();
+			nearestRingTransform = Elem.Key->GetActorTransform();
 		}
 	}
+}
+
+TArray<FOrbiterStruct> UCircleBPFunctions::OrbiterRotate(const AActor* AMainOrbiter, TArray<FOrbiterStruct> Orbiters, TArray<FRingStruct> Rings)
+{
+	TMap<AActor*, float> NearRings;
+	FTransform FNearestRing;
+	int index = 0;
+
+	for (auto& Orbiter : Orbiters)
+	{
+		// Scan for near rings
+		for (auto& Ring : Rings)
+		{
+			AActor* ARing = Ring.Actor;
+			float distance;
+			bool inRange;
+			RingInRange(AMainOrbiter, ARing, 500.f, distance, inRange);
+
+			if (inRange)
+			{
+				if (Orbiter.Color == Ring.Color)
+				{
+					FNearestRing = ARing->GetActorTransform();
+					UE_LOG(LogTemp, Warning, TEXT("color1: %s | color2: %s"), *Orbiter.Color.ToString(), *Ring.Color.ToString());
+					NearRings.Add(ARing, distance);
+				}
+			}
+		}
+
+		if (NearRings.Num() > 1)
+		{
+			FindNearestRing(NearRings, FNearestRing);
+			Orbiter.Actor->SetActorTransform(FNearestRing);
+		}
+		else if (NearRings.Num() > 0)
+		{
+			Orbiter.Actor->SetActorTransform(FNearestRing);
+		}
+		else
+		{
+			float NewRotation;
+			FVector NewLocation;
+			OrbitLoop(AMainOrbiter, Orbiter.Actor, 500.f, 1.f, 10.f, Orbiter.Rotation, index % 2 == 0, NewRotation, NewLocation);
+
+			// c++ magic
+			Orbiter.Rotation = NewRotation;
+			Orbiter.Actor->SetActorLocation(NewLocation);
+		}
+		index++;
+	}
+
+	return Orbiters;
 }
 
 UCircleBPFunctions::UCircleBPFunctions(const FObjectInitializer& ObjectInitializer) :
