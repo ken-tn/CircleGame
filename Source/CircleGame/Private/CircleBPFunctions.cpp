@@ -17,6 +17,7 @@ const FRotator UCircleBPFunctions::NormalToRotator(FVector currentRotation, FVec
 	return FRotator(rootQuat * crossedQuat);
 }
 
+//unused function :(
 void UCircleBPFunctions::RaycastFromCamera(const AActor* Camera, const TArray<AActor*> ignore, FHitResult &outHit, bool &hit)
 {
 	//USceneComponent* RootComponent = Camera->GetRootComponent();
@@ -44,6 +45,7 @@ void UCircleBPFunctions::OrbitLoop(const AActor* center, AActor* object, const f
 	newPosition = FVector(sin(newRotation) * calculateEclipse, cos(newRotation) * radius, 0) + mainOrbiterPosition;
 }
 
+//unused function :(
 void UCircleBPFunctions::CloneOrbiter(const AActor* AMainOrbiter, UStaticMeshComponent* &staticMeshComponent, AActor* &actor, bool& Success)
 {
 	FTransform SpawnTransform = AMainOrbiter->GetRootComponent()->GetComponentTransform();
@@ -51,7 +53,7 @@ void UCircleBPFunctions::CloneOrbiter(const AActor* AMainOrbiter, UStaticMeshCom
 	
 	//TEXT("StaticMesh'/Game/Circles/orbit.orbit'")
 	UStaticMeshComponent* StaticMeshComponent = NewObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass(), TEXT("StaticMesh"));
-	StaticMeshComponent->AttachTo(AMainOrbiter->GetRootComponent());
+	//StaticMeshComponent->AttachTo(AMainOrbiter->GetRootComponent());
 	//UMaterialInstanceConstant* Material = AOrbiter->ConstructObject<UMaterialInstanceConstant>(TEXT("MaterialInstanceConstant'/Game/Material/Orbit_Material.Orbit_Material'"));
 	//StaticMeshComponent->SetMaterial(0, Material);
 }
@@ -72,7 +74,7 @@ void UCircleBPFunctions::RingInRange(const AActor* orbiter, const AActor* curren
 	return;
 }
 
-void UCircleBPFunctions::FindNearestRing(TMap<AActor*, float> nearRings, FTransform& nearestRingTransform)
+void UCircleBPFunctions::FindNearestRing(TMap<AActor*, float> nearRings, AActor*& ANearestRing)
 {
 	float minDist = 100000.f;
 	for (auto& Elem : nearRings)
@@ -80,66 +82,86 @@ void UCircleBPFunctions::FindNearestRing(TMap<AActor*, float> nearRings, FTransf
 		const float dist = Elem.Value;
 		if (dist < minDist) {
 			minDist = dist;
-			nearestRingTransform = Elem.Key->GetActorTransform();
+			ANearestRing = Elem.Key;
 		}
 	}
 }
 
 TArray<FOrbiterStruct> UCircleBPFunctions::OrbiterRotate(const AActor* AMainOrbiter, TArray<FOrbiterStruct> Orbiters, TArray<FRingStruct> Rings)
 {
-	TMap<AActor*, float> NearRings;
-	FTransform FNearestRing;
+	float LockOnRadius = 500.f;
 	int index = 0;
 
 	for (auto& Orbiter : Orbiters)
 	{
+		TMap<AActor*, float> NearRings;
+		AActor* ANearestRing;
+		
 		// Scan for near rings
 		for (auto& Ring : Rings)
 		{
 			AActor* ARing = Ring.Actor;
 			float distance;
 			bool inRange;
-			RingInRange(AMainOrbiter, ARing, 500.f, distance, inRange);
+			RingInRange(AMainOrbiter, ARing, LockOnRadius, distance, inRange);
 
 			if (inRange)
 			{
 				if (Orbiter.Color == Ring.Color)
 				{
-					FNearestRing = ARing->GetActorTransform();
-					UE_LOG(LogTemp, Warning, TEXT("color1: %s | color2: %s"), *Orbiter.Color.ToString(), *Ring.Color.ToString());
+					ANearestRing = ARing;
 					NearRings.Add(ARing, distance);
 				}
 			}
 		}
 
-		if (NearRings.Num() > 1)
+		if (NearRings.Num() > 0)
 		{
-			FindNearestRing(NearRings, FNearestRing);
-			Orbiter.Actor->SetActorTransform(FNearestRing);
-		}
-		else if (NearRings.Num() > 0)
-		{
-			Orbiter.Actor->SetActorTransform(FNearestRing);
+			FindNearestRing(NearRings, ANearestRing);
+			Orbiter.Actor->SetActorTransform(ANearestRing->GetActorTransform());
+			Orbiter.Target = ANearestRing;
 		}
 		else
 		{
 			float NewRotation;
 			FVector NewLocation;
-			OrbitLoop(AMainOrbiter, Orbiter.Actor, 500.f, 1.f, 10.f, Orbiter.Rotation, index % 2 == 0, NewRotation, NewLocation);
+			OrbitLoop(AMainOrbiter, Orbiter.Actor, LockOnRadius, 1.f, 10.f, Orbiter.Rotation, index % 2 == 0, NewRotation, NewLocation);
 
 			// c++ magic
 			Orbiter.Rotation = NewRotation;
 			Orbiter.Actor->SetActorLocation(NewLocation);
 		}
+
 		index++;
 	}
 
 	return Orbiters;
 }
 
+TArray<FRingStruct> UCircleBPFunctions::KillTarget(const int orbiterNumber, const TArray<FOrbiterStruct> Orbiters, TArray<FRingStruct> Rings)
+{
+	FOrbiterStruct Orbiter = Orbiters[orbiterNumber];
+	AActor* ATarget = Orbiter.Target;
+	if (ATarget)
+	{
+		ATarget->Destroy();
+		for (int i = 0; i < Rings.Num(); i++)
+		{
+			AActor* ARing = Rings[i].Actor;
+			if (ARing == ATarget)
+			{
+				Rings.RemoveAt(i);
+			}
+		}
+	}
+
+	return Rings;
+}
+
 UCircleBPFunctions::UCircleBPFunctions(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)
 	{
+		//unused :(
 		static ConstructorHelpers::FObjectFinder<UStaticMesh>MeshAsset(TEXT("StaticMesh'/Game/Circles/orbit.orbit'"));
 		static ConstructorHelpers::FObjectFinder<UMaterialInstance>MaterialAsset(TEXT("MaterialInstanceConstant'/Game/Material/Orbit_Material.Orbit_Material'"));
 

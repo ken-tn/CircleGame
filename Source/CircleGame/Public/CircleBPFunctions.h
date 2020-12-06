@@ -22,7 +22,7 @@ struct FOrbiterStruct
 	float Rotation;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FLinearColor Color;
+	int Color;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	AActor* Target;
@@ -37,7 +37,7 @@ struct FRingStruct
 	AActor* Actor;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FLinearColor Color;
+	int Color;
 };
 
 UCLASS()
@@ -69,8 +69,11 @@ class CIRCLEGAME_API UCircleBPFunctions : public UBlueprintFunctionLibrary
 		static void RingInRange(const AActor* orbiter, const AActor* currentTarget, const float lockRadius, float& distance, bool& inRange);
 
 	UFUNCTION(BlueprintCallable, Category = "CircleRings")
-		static void FindNearestRing(TMap<AActor*, float> nearRings, FTransform& nearestRingTransform);
+		static void FindNearestRing(TMap<AActor*, float> nearRings, AActor*& ANearestRing);
 
 	UFUNCTION(BlueprintCallable, Category = "CircleRings")
 		static TArray<FOrbiterStruct> OrbiterRotate(const AActor* AMainOrbiter, TArray<FOrbiterStruct> Orbiters, TArray<FRingStruct> Rings);
+
+	UFUNCTION(BlueprintCallable, Category = "CircleRings")
+		static TArray<FRingStruct> KillTarget(const int orbiterNumber, const TArray<FOrbiterStruct> Orbiters, TArray<FRingStruct> Rings);
 };
