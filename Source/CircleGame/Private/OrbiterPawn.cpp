@@ -67,10 +67,12 @@ void AOrbiterPawn::OrbitLoop(AActor* object, const float radius, const float ecl
 {
 	float rotationSpeed = PI * 2 / orbitTime;
 	float calculateEclipse = eclipse * radius;
-	if (reverse) {
+	if (reverse)
+	{
 		newRotation = currentRotation + (0.166666f) * rotationSpeed;
 	}
-	else {
+	else
+	{
 		newRotation = currentRotation - (0.166666f) * rotationSpeed;
 	}
 
@@ -95,7 +97,8 @@ void AOrbiterPawn::RingInRange(const AActor* orbiter, const AActor* currentTarge
 	FVector ringLocation = currentTarget->GetActorLocation();
 	distance = (orbiterLocation - ringLocation).Size();
 
-	if (distance < lockRadius) {
+	if (distance < lockRadius)
+	{
 		inRange = true;
 	}
 }
@@ -106,7 +109,8 @@ void AOrbiterPawn::FindNearestRing(TMap<AActor*, float> nearRings, AActor*& ANea
 	for (auto& Elem : nearRings)
 	{
 		const float dist = Elem.Value;
-		if (dist < minDist) {
+		if (dist < minDist)
+		{
 			minDist = dist;
 			ANearestRing = Elem.Key;
 		}
@@ -118,7 +122,8 @@ void AOrbiterPawn::RingSpawner()
 	int colour = FMath::RandRange(0, NumberOfOrbiters - 1);
 
 	FOrbiterObjStruct Ring = SpawnOrbiter(Colours[colour]);
-	if (RingBaseMesh != nullptr) {
+	if (RingBaseMesh != nullptr)
+	{
 		Ring.StaticMeshComponent->SetStaticMesh(RingBaseMesh);
 	}
 
@@ -181,7 +186,8 @@ void AOrbiterPawn::OrbiterRotate()
 void AOrbiterPawn::OrbiterSpawn()
 {
 	// Create mesh
-	if (OrbiterMesh != nullptr) {
+	if (OrbiterMesh != nullptr)
+	{
 		StaticMeshComponent->SetStaticMesh(OrbiterMesh);
 	}
 
@@ -238,7 +244,8 @@ AOrbiterPawn::AOrbiterPawn()
 	PrimaryActorTick.bCanEverTick = true;
 
 	ConstructorHelpers::FObjectFinder<UStaticMesh>RingMesh(TEXT("StaticMesh'/Game/Circles/ringbase.ringbase'"));
-	if (RingMesh.Object != nullptr) {
+	if (RingMesh.Object != nullptr)
+	{
 		RingBaseMesh = RingMesh.Object;
 	}
 

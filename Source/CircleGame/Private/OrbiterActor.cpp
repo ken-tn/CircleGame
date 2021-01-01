@@ -25,11 +25,13 @@ AOrbiterActor::AOrbiterActor()
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
 	RootComponent = StaticMeshComponent;
 
-	if (MeshAsset.Object != nullptr) {
+	if (MeshAsset.Object != nullptr)
+	{
 		StaticMesh = MeshAsset.Object;
 	}
 
-	if (MaterialAsset.Object != nullptr) {
+	if (MaterialAsset.Object != nullptr)
+	{
 		BaseMaterial = MaterialAsset.Object;
 	}
 }

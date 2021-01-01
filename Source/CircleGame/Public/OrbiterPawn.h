@@ -58,13 +58,14 @@ class CIRCLEGAME_API AOrbiterPawn : public APawn
 	FTimerHandle RingTimerHandle;
 
 	UPROPERTY(EditAnywhere)
-		TArray<FLinearColor> Colours = {
-		FLinearColor(1.f, 0.f, 0.f, 1.f),
-		FLinearColor(0.f, 1.f, 0.f, 1.f),
-		FLinearColor(0.f, 0.f, 1.f, 1.f),
-		FLinearColor(1.f, 0.f, 1.f, 1.f),
-		FLinearColor(1.f, 1.f, 0.f, 1.f)
-	};
+		TArray<FLinearColor> Colours =
+		{
+			FLinearColor(1.f, 0.f, 0.f, 1.f),
+			FLinearColor(0.f, 1.f, 0.f, 1.f),
+			FLinearColor(0.f, 0.f, 1.f, 1.f),
+			FLinearColor(1.f, 0.f, 1.f, 1.f),
+			FLinearColor(1.f, 1.f, 0.f, 1.f)
+		};
 
 	UPROPERTY(EditAnywhere, meta = (ClampMin = "10.0", ClampMax = "50.0", UIMin = "10.0", UIMax = "50.0"))
 		float RotationSpeed = 15.f;
