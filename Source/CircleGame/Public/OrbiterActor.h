@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Materials/MaterialInstanceConstant.h"
 #include "OrbiterActor.generated.h"
 
 UCLASS()
@@ -11,13 +12,13 @@ class CIRCLEGAME_API AOrbiterActor : public AActor
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere)
-		UStaticMeshComponent* StaticMeshComponent;
+	UStaticMeshComponent* StaticMeshComponent;
 
-	UPROPERTY(EditAnywhere)
-		UMaterialInstanceDynamic* DynamicMaterialComponent;
+	UMaterialInstanceDynamic* DynamicMaterialComponent;
 
-	
+	UStaticMesh* StaticMesh;
+
+	UMaterial* BaseMaterial;
 
 public:	
 	// Sets default values for this actor's properties

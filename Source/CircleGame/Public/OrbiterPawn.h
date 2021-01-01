@@ -53,6 +53,10 @@ class CIRCLEGAME_API AOrbiterPawn : public APawn
 {
 	GENERATED_BODY()
 
+	// Properties
+
+	FTimerHandle RingTimerHandle;
+
 	UPROPERTY(EditAnywhere)
 		TArray<FLinearColor> Colours = {
 		FLinearColor(1.f, 0.f, 0.f, 1.f),
@@ -62,7 +66,10 @@ class CIRCLEGAME_API AOrbiterPawn : public APawn
 		FLinearColor(1.f, 1.f, 0.f, 1.f)
 	};
 
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "10.0", ClampMax = "50.0", UIMin = "10.0", UIMax = "50.0"))
+		float RotationSpeed = 15.f;
+
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "1", ClampMax = "5", UIMin = "1", UIMax = "5"))
 		uint8 NumberOfOrbiters = 4;
 
 	UPROPERTY()
@@ -80,20 +87,25 @@ class CIRCLEGAME_API AOrbiterPawn : public APawn
 	UPROPERTY(EditAnywhere)
 		UMaterialInstance* OrbiterMaterialInstance;
 
-	UPROPERTY()
-		UStaticMeshComponent* StaticMeshComponent;
+	UStaticMeshComponent* StaticMeshComponent;
+	UStaticMesh* RingBaseMesh;
+
+	// Methods
 
 	UFUNCTION(BlueprintCallable, Category = "CircleFunctions")
 		static const FRotator NormalToRotator(FVector currentRotation, FVector normal);
 
 	UFUNCTION(BlueprintCallable, Category = "CircleFunctions")
-		static void RaycastFromCamera(const TArray<AActor*> Ignored, FHitResult& OutHit, bool& IsHit);
+		void RaycastFromCamera(FHitResult& OutHit, bool& IsHit);
 
-	UFUNCTION(BlueprintCallable, Category = "CircleFunctions")
-		static void OrbiterToMouse(const TArray<AActor*> Ignored, AActor* AMainOrbiter);
+	UFUNCTION(Category = "CircleRings")
+		static void FindNearestRing(TMap<AActor*, float> nearRings, AActor*& ANearestRing);
+
+	UFUNCTION()
+		void RingSpawner();
 
 	UFUNCTION(Category = "CircleOrbiter")
-		static void OrbitLoop(const AActor* center, AActor* object, const float radius, const float eclipse, const float orbitTime, const float currentRotation, bool reverse, float& newRotation, FVector& newPosition);
+		void OrbitLoop(AActor* object, const float radius, const float eclipse, const float orbitTime, const float currentRotation, bool reverse, float& newRotation, FVector& newPosition);
 
 	UFUNCTION(BlueprintCallable, Category = "CircleRings")
 		FOrbiterObjStruct SpawnOrbiter(FLinearColor Color);
@@ -101,16 +113,17 @@ class CIRCLEGAME_API AOrbiterPawn : public APawn
 	UFUNCTION(BlueprintCallable, Category = "CircleRings")
 		static void RingInRange(const AActor* orbiter, const AActor* currentTarget, const float lockRadius, float& distance, bool& inRange);
 
-	UFUNCTION(Category = "CircleRings")
-		static void FindNearestRing(TMap<AActor*, float> nearRings, AActor*& ANearestRing);
+	UFUNCTION(Category = "CircleFunctions")
+		void OrbiterToMouse();
 
 	UFUNCTION(Category = "CircleRings")
-		void OrbiterRotate(const AActor* AMainOrbiter);
+		void OrbiterRotate();
 
-	/*
+	UFUNCTION(Category = "CircleRings")
+		void OrbiterSpawn();
+
 	UFUNCTION(BlueprintCallable, Category = "CircleRings")
-		static TArray<FRingStruct> KillTarget(const int Input, const TArray<FOrbiterStruct> Orbiters, TArray<FRingStruct> Rings);
-	*/
+		TArray<FRingStruct> KillTarget(const int Input);
 
 public:
 	// Sets default values for this pawn's properties

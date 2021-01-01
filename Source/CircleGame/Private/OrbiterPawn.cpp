@@ -21,54 +21,49 @@ const FRotator AOrbiterPawn::NormalToRotator(FVector currentRotation, FVector no
 	return FRotator(rootQuat * crossedQuat);
 }
 
-void AOrbiterPawn::RaycastFromCamera(const TArray<AActor*> Ignored, FHitResult& OutHit, bool& IsHit)
+void AOrbiterPawn::RaycastFromCamera(FHitResult& OutHit, bool& IsHit)
 {
-	// Get Player Controller
-	if (GEngine != 0)
+	const APlayerController* PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+
+	// Get Mouse location and direction
+	FVector WorldLoc;
+	FVector WorldDir;
+	PlayerController->DeprojectMousePositionToWorld(WorldLoc, WorldDir);
+
+	// Get Camera location
+	const FVector CameraWorldLocation = PlayerController->PlayerCameraManager->GetRootComponent()->GetComponentLocation();
+
+	// A position 9000 units in camera's direction
+	WorldDir *= 9000;
+	WorldLoc += WorldDir;
+
+	// Create ignore collisions
+	FCollisionQueryParams CollisionParams;
+	for (auto& Actor : Ignore)
 	{
-		const UWorld* World = GEngine->GameViewport->GetWorld();
-		const APlayerController* PlayerController = UGameplayStatics::GetPlayerController(World, 0);
-
-		// Get Mouse location and direction
-		FVector WorldLoc;
-		FVector WorldDir;
-		PlayerController->DeprojectMousePositionToWorld(WorldLoc, WorldDir);
-
-		// Get Camera location
-		FVector CameraWorldLocation = PlayerController->PlayerCameraManager->GetRootComponent()->GetComponentLocation();
-
-		// A position 9000 units in camera's direction
-		WorldDir *= 9000;
-		WorldLoc += WorldDir;
-
-		// Create ignore collisions
-		FCollisionQueryParams CollisionParams;
-		for (auto& Actor : Ignored)
-		{
-			CollisionParams.AddIgnoredActor(Actor);
-		}
-
-		bool bIsHit = World->LineTraceSingleByChannel(OutHit, CameraWorldLocation, WorldLoc, ECollisionChannel::ECC_Visibility, CollisionParams);
+		CollisionParams.AddIgnoredActor(Actor);
 	}
+
+	bool bIsHit = GetWorld()->LineTraceSingleByChannel(OutHit, CameraWorldLocation, WorldLoc, ECollisionChannel::ECC_Visibility, CollisionParams);
 }
 
-void AOrbiterPawn::OrbiterToMouse(const TArray<AActor*> Ignored, AActor* AMainOrbiter)
+void AOrbiterPawn::OrbiterToMouse()
 {
 	// Raycast
 	bool bIsHit;
 	FHitResult OutHit;
-	RaycastFromCamera(Ignored, OutHit, bIsHit);
+	RaycastFromCamera(OutHit, bIsHit);
 
 	// Move orbiter
 	if (bIsHit)
 	{
-		FRotator NewRotation = NormalToRotator(AMainOrbiter->GetActorRotation().Vector(), OutHit.Normal);
-		AMainOrbiter->SetActorLocation(OutHit.Location);
-		AMainOrbiter->SetActorRotation(NewRotation);
+		FRotator NewRotation = NormalToRotator(this->GetActorRotation().Vector(), OutHit.Normal);
+		this->SetActorLocation(OutHit.Location);
+		this->SetActorRotation(NewRotation);
 	}
 }
 
-void AOrbiterPawn::OrbitLoop(const AActor* center, AActor* object, const float radius, const float eclipse, const float orbitTime, const float currentRotation, bool reverse, float& newRotation, FVector& newPosition)
+void AOrbiterPawn::OrbitLoop(AActor* object, const float radius, const float eclipse, const float orbitTime, const float currentRotation, bool reverse, float& newRotation, FVector& newPosition)
 {
 	float rotationSpeed = PI * 2 / orbitTime;
 	float calculateEclipse = eclipse * radius;
@@ -79,7 +74,7 @@ void AOrbiterPawn::OrbitLoop(const AActor* center, AActor* object, const float r
 		newRotation = currentRotation - (0.166666f) * rotationSpeed;
 	}
 
-	FVector mainOrbiterPosition = center->GetActorLocation();
+	FVector mainOrbiterPosition = this->GetActorLocation();
 	newPosition = FVector(sin(newRotation) * calculateEclipse, cos(newRotation) * radius, 0) + mainOrbiterPosition;
 }
 
@@ -87,12 +82,15 @@ FOrbiterObjStruct AOrbiterPawn::SpawnOrbiter(FLinearColor Color)
 {
 	FActorSpawnParameters SpawnInfo;
 	AOrbiterActor* Orbiter = GetWorld()->SpawnActor<AOrbiterActor>(this->GetActorLocation(), this->GetActorRotation(), SpawnInfo);
+	Orbiter->SetColor(Color);
 
 	return FOrbiterObjStruct{ Orbiter, Orbiter->GetMesh() };
 }
 
 void AOrbiterPawn::RingInRange(const AActor* orbiter, const AActor* currentTarget, const float lockRadius, float& distance, bool& inRange)
 {
+	inRange = false;
+
 	FVector orbiterLocation = orbiter->GetActorLocation();
 	FVector ringLocation = currentTarget->GetActorLocation();
 	distance = (orbiterLocation - ringLocation).Size();
@@ -100,11 +98,6 @@ void AOrbiterPawn::RingInRange(const AActor* orbiter, const AActor* currentTarge
 	if (distance < lockRadius) {
 		inRange = true;
 	}
-	else {
-		inRange = false;
-	}
-
-	return;
 }
 
 void AOrbiterPawn::FindNearestRing(TMap<AActor*, float> nearRings, AActor*& ANearestRing)
@@ -120,7 +113,23 @@ void AOrbiterPawn::FindNearestRing(TMap<AActor*, float> nearRings, AActor*& ANea
 	}
 }
 
-void AOrbiterPawn::OrbiterRotate(const AActor* AMainOrbiter)
+void AOrbiterPawn::RingSpawner()
+{
+	int colour = FMath::RandRange(0, NumberOfOrbiters - 1);
+
+	FOrbiterObjStruct Ring = SpawnOrbiter(Colours[colour]);
+	if (RingBaseMesh != nullptr) {
+		Ring.StaticMeshComponent->SetStaticMesh(RingBaseMesh);
+	}
+
+	Ring.Actor->SetActorLocation(FVector(FMath::RandRange(-1000.f, 1000.f), FMath::RandRange(-750.f, 750.f), this->GetActorLocation().Z));
+	Rings.Add(FRingStruct{Ring.Actor, colour});
+
+	// Repeatedly spawn rings
+	GetWorld()->GetTimerManager().SetTimer(RingTimerHandle, this, &AOrbiterPawn::RingSpawner, 1.f, false);
+}
+
+void AOrbiterPawn::OrbiterRotate()
 {
 	float LockOnRadius = 500.f;
 	int index = 0;
@@ -136,7 +145,7 @@ void AOrbiterPawn::OrbiterRotate(const AActor* AMainOrbiter)
 			AActor* ARing = Ring.Actor;
 			float distance;
 			bool inRange;
-			RingInRange(AMainOrbiter, ARing, LockOnRadius, distance, inRange);
+			RingInRange(this, ARing, LockOnRadius, distance, inRange);
 
 			if (inRange)
 			{
@@ -158,7 +167,7 @@ void AOrbiterPawn::OrbiterRotate(const AActor* AMainOrbiter)
 		{
 			float NewRotation;
 			FVector NewLocation;
-			OrbitLoop(AMainOrbiter, Orbiter.Actor, LockOnRadius, 1.f, 10.f, Orbiter.Rotation, index % 2 == 0, NewRotation, NewLocation);
+			OrbitLoop(Orbiter.Actor, LockOnRadius, 1.f, RotationSpeed, Orbiter.Rotation, index % 2 == 0, NewRotation, NewLocation);
 
 			// c++ magic
 			Orbiter.Rotation = NewRotation;
@@ -169,7 +178,37 @@ void AOrbiterPawn::OrbiterRotate(const AActor* AMainOrbiter)
 	}
 }
 
-/*TArray<FRingStruct> AOrbiterPawn::KillTarget(const int Input, const TArray<FOrbiterStruct> Orbiters, TArray<FRingStruct> Rings)
+void AOrbiterPawn::OrbiterSpawn()
+{
+	// Create mesh
+	if (OrbiterMesh != nullptr) {
+		StaticMeshComponent->SetStaticMesh(OrbiterMesh);
+	}
+
+	// Create dynamic material
+	if (OrbiterMaterialInstance != nullptr)
+	{
+		StaticMeshComponent->CreateDynamicMaterialInstance(0, OrbiterMaterialInstance, FName("MaterialInstanceDynamic"));
+	}
+
+	// Spawn the orbiters
+	for (int i = 0; i < NumberOfOrbiters; i++)
+	{
+		FOrbiterObjStruct Orbiter = SpawnOrbiter(Colours[i]);
+
+		FOrbiterStruct OrbiterStruct = {};
+		OrbiterStruct.Actor = Orbiter.Actor;
+		OrbiterStruct.Rotation = i * (360 / NumberOfOrbiters);
+		OrbiterStruct.Color = i;
+
+		Ignore.Add(Orbiter.Actor);
+		Orbiters.Add(OrbiterStruct);
+	}
+
+	Ignore.Add(this);
+}
+
+TArray<FRingStruct> AOrbiterPawn::KillTarget(const int Input)
 {
 	if (Input < NumberOfOrbiters)
 	{
@@ -190,7 +229,7 @@ void AOrbiterPawn::OrbiterRotate(const AActor* AMainOrbiter)
 	}
 
 	return Rings;
-}*/
+}
 
 // Sets default values
 AOrbiterPawn::AOrbiterPawn()
@@ -198,42 +237,21 @@ AOrbiterPawn::AOrbiterPawn()
  	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
+	ConstructorHelpers::FObjectFinder<UStaticMesh>RingMesh(TEXT("StaticMesh'/Game/Circles/ringbase.ringbase'"));
+	if (RingMesh.Object != nullptr) {
+		RingBaseMesh = RingMesh.Object;
+	}
+
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
-	//StaticMeshComponent->AttachToComponent(this->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 }
 
 // Called when the game starts or when spawned
 void AOrbiterPawn::BeginPlay()
 {
-	// Create mesh
-	if (OrbiterMesh != nullptr) {
-		StaticMeshComponent->SetStaticMesh(OrbiterMesh);
-	}
-	
-	// Create dynamic material
-	if (OrbiterMaterialInstance != nullptr)
-	{
-		StaticMeshComponent->CreateDynamicMaterialInstance(0, OrbiterMaterialInstance, FName("MaterialInstanceDynamic"));
-	}
-
-	// Spawn the orbiters
-	for (int i = 0; i < NumberOfOrbiters; i++)
-	{
-		FOrbiterObjStruct Orbiter = SpawnOrbiter(Colours[i]);
-		
-		FOrbiterStruct OrbiterStruct = {};
-		OrbiterStruct.Actor = Orbiter.Actor;
-		OrbiterStruct.Rotation = i * (360 / NumberOfOrbiters);
-		OrbiterStruct.Color = i;
-
-		Ignore.Add(Orbiter.Actor);
-		Orbiters.Add(OrbiterStruct);
-	}
-
-	Ignore.Add(this);
-
 	Super::BeginPlay();
-	
+
+	OrbiterSpawn();
+	RingSpawner();
 }
 
 // Called every frame
@@ -241,8 +259,8 @@ void AOrbiterPawn::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	OrbiterToMouse(Ignore, this);
-	OrbiterRotate(this);
+	OrbiterToMouse();
+	OrbiterRotate();
 }
 
 // Called to bind functionality to input

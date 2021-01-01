@@ -5,7 +5,7 @@
 
 void AOrbiterActor::SetColor(FLinearColor Color)
 {
-	this->DynamicMaterialComponent->SetVectorParameterValue(FName("Color"), Color);
+	DynamicMaterialComponent->SetVectorParameterValue(FName("Color"), Color);
 }
 
 UStaticMeshComponent* AOrbiterActor::GetMesh()
@@ -17,23 +17,33 @@ UStaticMeshComponent* AOrbiterActor::GetMesh()
 AOrbiterActor::AOrbiterActor()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 
 	ConstructorHelpers::FObjectFinder<UStaticMesh>MeshAsset(TEXT("StaticMesh'/Game/Circles/orbit.orbit'"));
+	ConstructorHelpers::FObjectFinder<UMaterial>MaterialAsset(TEXT("Material'/Game/Material/Neon.Neon'"));
 	
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent"));
+	RootComponent = StaticMeshComponent;
+
 	if (MeshAsset.Object != nullptr) {
-		StaticMeshComponent->SetStaticMesh(MeshAsset.Object);
+		StaticMesh = MeshAsset.Object;
 	}
 
-	DynamicMaterialComponent = CreateDefaultSubobject<UMaterialInstanceDynamic>(TEXT("DynamicMaterial"));
+	if (MaterialAsset.Object != nullptr) {
+		BaseMaterial = MaterialAsset.Object;
+	}
 }
 
 // Called when the game starts or when spawned
 void AOrbiterActor::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	DynamicMaterialComponent = UMaterialInstanceDynamic::Create(BaseMaterial, this);
+	DynamicMaterialComponent->SetScalarParameterValue("Strength", 10.f);
+
+	StaticMeshComponent->SetStaticMesh(StaticMesh);
+	StaticMeshComponent->SetMaterial(0, DynamicMaterialComponent);
 }
 
 // Called every frame
